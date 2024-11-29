@@ -1,239 +1,91 @@
 # world_battles_map  
 ![Figure_1](https://github.com/user-attachments/assets/c49c5b4e-958d-40f0-b8bc-168575db1322)  
-## 1. 先是爬蟲維基百科的戰爭列表  
-![468522936_10235253595825246_6725881804282802072_n](https://github.com/user-attachments/assets/3eff7ae9-d252-44f5-ac5f-312440820e6d)
-![468813760_10235253596505263_7122314058502223503_n](https://github.com/user-attachments/assets/30a0866c-eb46-4114-8b3b-d73b9fbb85f8)
-![468532358_10235253598065302_3375830959737422450_n](https://github.com/user-attachments/assets/5d3f1350-415c-4e7d-8dfa-da1e8f230ca5)
-![468733455_10235253598785320_1945598308120034495_n](https://github.com/user-attachments/assets/23401a76-1e70-49bd-a691-ada10a8854c4)
-![468581702_10235253600025351_5916700725388244848_n](https://github.com/user-attachments/assets/85d3b233-9736-4e80-970b-aad3d36b3c39)
-## 2. 然後把找到的位置畫在世界地圖上  
-![image](https://github.com/user-attachments/assets/3b0ddaf4-d85d-4049-8221-93d1d1d98993)
-![image](https://github.com/user-attachments/assets/8450120a-e2b6-4e70-8a2a-d2523acc50d9)  
-
-## 全程是跟xai的grok對話協作而成  
-* 以下是抄錄第二步驟程式的對話過程
   
-user: 我有一份CSV 第一列是欄位名稱 分別是 第一個欄位是戰役的維基百科網址battle_url 第二個欄位是所在位置(有的是地名有的是座標)location 能不能用python寫一個程式 畫一張世界地圖 然後把CSV讀進來 解析第二欄位 自動轉換成世界地圖的座標 在圖上面打一個紅點
-以下是CSV前幾列的內容給你參考
-```
-battle_url,location
-https://en.wikipedia.org/wiki/Siege_of_Naqada,"Naqada, Upper Egypt"
-https://en.wikipedia.org/wiki/Battle_of_Banquan,"Banquan, China (disputed)"
-https://en.wikipedia.org/wiki/Battle_of_Zhuolu,"Zhuolu, Hebei"
-https://en.wikipedia.org/wiki/Battle_of_Mingtiao,Mingtiao
-https://en.wikipedia.org/wiki/Battle_of_Megiddo_(15th_century_BC),"Megiddo, Canaan32°35′07″N 35°11′04″E﻿ / ﻿32.58528°N 35.18444°E﻿ / 32.58528; 35.18444"
-https://en.wikipedia.org/wiki/Battle_of_the_Ten_Kings,"Near Parusni river (modern Ravi), Punjab"
-https://en.wikipedia.org/wiki/Battle_of_Ganuvara,Ganuvara
-https://en.wikipedia.org/wiki/Battle_of_K%C4%81r_I%C5%A1tar,Kār Ištar
-https://en.wikipedia.org/wiki/Battles_of_Alashiya,Off the coast of Alashiya (Cyprus)
-https://en.wikipedia.org/wiki/Battle_of_Kadesh,"Orontes River, near Kadesh (modern-day Lebanon–Syria border)"
-https://en.wikipedia.org/wiki/Siege_of_Dapur,"Dapur, Hittite Empire (Syria region)34°33′28.12″N 36°31′10.56″E﻿ / ﻿34.5578111°N 36.5196000°E﻿ / 34.5578111; 36.5196000"
-https://en.wikipedia.org/wiki/Tollense_valley_battlefield,"Tollense Valley, present-day Germany53°45′45″N 13°18′29″E﻿ / ﻿53.7625°N 13.3080°E﻿ / 53.7625; 13.3080"
-https://en.wikipedia.org/wiki/Battle_of_Nihriya,Niḫriya
-https://en.wikipedia.org/wiki/Battle_of_Perire,"Perire, possibly in the western Nile Delta"
-https://en.wikipedia.org/wiki/Battle_of_Djahy,Djahy
-https://en.wikipedia.org/wiki/Battle_of_the_Delta,Eastern Nile Delta
-https://en.wikipedia.org/wiki/Battle_of_Mount_Tabor_(biblical),"Mount Tabor, Israel"
-https://en.wikipedia.org/wiki/Battle_of_Muye,Muye (in present-day central Henan)
-https://en.wikipedia.org/wiki/Battle_of_Michmash,"Michmash, United Kingdom of Israel"
-https://en.wikipedia.org/wiki/Siege_of_Jebus,"Jerusalem, Canaan31°47′N 35°13′E﻿ / ﻿31.783°N 35.217°E﻿ / 31.783; 35.217"
-```
-特別注意location欄位的資料多樣性 要有對應的處理X
-assistant:
-要完成這個任務，我們需要使用幾個Python庫來處理CSV文件、解析地名和座標、以及繪製世界地圖。這裡是一個可能的解決方案：
+這個程式分為兩個步驟  battles_locations.csv 以及 csv_to_map.py
+# Battles Locations Scraper(battles_locations.py)
 
-安裝必要的Python庫：
-pandas⎘ 用來讀取CSV文件。
-geopy⎘ 用來解析地名到座標。
-matplotlib⎘ 和 cartopy⎘ 用來繪製地圖。
-```
-pip install pandas geopy matplotlib cartopy
-```
-⎘
-Python 程式碼：
-```
-import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import re
+這個Python腳本用來從維基百科的「戰役列表」頁面獲取各個戰役的位置資訊，並將這些資訊儲存到一個CSV文件中。以下是這個工具的主要步驟：
 
-# 初始化地名解析器
-geolocator = Nominatim(user_agent="my_application")
+1. **獲取"By era"部分的連結**：
+   - 首先，腳本會從`https://en.wikipedia.org/wiki/Lists_of_battles`頁面中提取「By era」部分的所有連結。
 
-def get_coordinates(location):
-    try:
-        # 首先嘗試直接從字符串中提取座標
-        coord_match = re.search(r'(\d+\.\d+°[NSEW]\s+\d+\.\d+°[NSEW])', location)
-        if coord_match:
-            coord_str = coord_match.group(1)
-            lat_str, lon_str = coord_str.split()
-            lat = float(lat_str[:-1]) if lat_str[-1] == 'N' else -float(lat_str[:-1])
-            lon = float(lon_str[:-1]) if lon_str[-1] == 'E' else -float(lon_str[:-1])
-            return lon, lat
-        
-        # 如果没有找到座標，則使用geopy进行地理编码
-        location = re.sub(r'\([^)]*\)', '', location)  # 移除括號内的內容
-        location = location.strip()
-        location = re.sub(r'\s+', ' ', location)  # 清理多餘空格
-        loc = geolocator.geocode(location, timeout=10)
-        if loc:
-            return loc.longitude, loc.latitude
-    except (GeocoderTimedOut, GeocoderUnavailable):
-        print(f"Failed to retrieve coordinates for {location}")
-    return None, None
+2. **瀏覽各時代的戰役列表**：
+   - 點擊每個時代的連結進入該時代的戰役列表頁面。
 
-# 讀取CSV文件
-df = pd.read_csv('your_file.csv')
+3. **提取戰役連結**：
+   - 從每個時代的列表頁面中，提取出每場戰役的連結。
 
-# 設置地圖
-plt.figure(figsize=(15, 10))
-ax = plt.axes(projection=ccrs.PlateCarree())
-ax.stock_img()
-ax.coastlines()
+4. **獲取戰役位置資訊**：
+   - 對於每個戰役的連結，腳本會進入該戰役的詳細頁面，並從頁面的Infobox中提取位置資訊。
 
-# 處理每個位置並在地圖上標記
-for _, row in df.iterrows():
-    location = row['location']
-    lon, lat = get_coordinates(location)
-    if lon and lat:
-        ax.plot(lon, lat, 'ro', transform=ccrs.PlateCarree())  # 紅點標記
-        # 可以選擇添加文字標籤
-        # ax.text(lon, lat, row['battle_url'], transform=ccrs.PlateCarree(), fontsize=8, horizontalalignment='right')
+5. **儲存結果**：
+   - 所有提取到的戰役位置資訊會被儲存到一個名為`battles_locations.csv`的CSV文件中，其中包含了每個戰役的URL和位置。
 
-plt.title('Battle Locations')
-plt.show()
-```
-⎘
-注意事項：
-這個程式碼假設你的CSV文件名是your_file.csv⎘，請修改為你的實際文件名。
-geopy⎘ 的使用需要網絡連接，因為它會向地理編碼服務請求數據。
-對於一些位置，地名解析可能不準確或無法解析，這時可以考慮使用預先準備的座標列表或者手動輸入。
-座標直接解析的正則表達式是基於你提供的示例格式，如果有其他格式的座標，需要調整正則表達式。
-地圖的顯示取決於你的環境配置，確保 cartopy⎘ 能夠正確讀取地圖數據。
-user: ValueError: could not convert string to float: '32.58528°'
-好像是角度符號導致解析錯誤X
-assistant:
-確實，這個錯誤是因為我們的正則表達式沒有正確地處理角度符號(°⎘)。讓我們修改正則表達式來正確地處理這些度數符號。以下是修改後的代碼：
-```
-import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import re
+## 安裝需求
 
-# 初始化地名解析器
-geolocator = Nominatim(user_agent="my_application")
+- Python 3.x
+- requests 庫
+- beautifulsoup4 庫
 
-def get_coordinates(location):
-    try:
-        # 直接從字符串中提取座標，包含度數符號
-        coord_match = re.search(r'(?P<lat>\d+(\.\d+)?°\s*[NSEW])\s*(?P<lon>\d+(\.\d+)?°\s*[NSEW])', location)
-        if coord_match:
-            lat_str, lon_str = coord_match.group('lat'), coord_match.group('lon')
-            lat = float(re.sub(r'[°NSEW]', '', lat_str)) if lat_str[-1] in 'N' else -float(re.sub(r'[°NSEW]', '', lat_str))
-            lon = float(re.sub(r'[°NSEW]', '', lon_str)) if lon_str[-1] in 'E' else -float(re.sub(r'[°NSEW]', '', lon_str))
-            return lon, lat
-        
-        # 如果没有找到座標，則使用geopy进行地理编码
-        location = re.sub(r'\([^)]*\)', '', location)  # 移除括號内的內容
-        location = location.strip()
-        location = re.sub(r'\s+', ' ', location)  # 清理多餘空格
-        loc = geolocator.geocode(location, timeout=10)
-        if loc:
-            return loc.longitude, loc.latitude
-    except (GeocoderTimedOut, GeocoderUnavailable):
-        print(f"Failed to retrieve coordinates for {location}")
-    return None, None
+## 如何使用
 
-# 讀取CSV文件
-df = pd.read_csv('your_file.csv')
+1. 克隆或下載此GitHub庫到您的本地電腦。
+2. 在命令行中，導航到包含此腳本的目錄。
+3. 安裝必要的Python庫：
+   - 請執行以下命令來安裝requests和beautifulsoup4庫。
+4. 執行腳本：
+   - 請執行Python腳本`battles_locations.py`。
+   - 這將會產生一個`battles_locations.csv`文件，包含所有提取到的戰役位置資訊。
 
-# 設置地圖
-plt.figure(figsize=(15, 10))
-ax = plt.axes(projection=ccrs.PlateCarree())
-ax.stock_img()
-ax.coastlines()
+## 注意事項
 
-# 處理每個位置並在地圖上標記
-for _, row in df.iterrows():
-    location = row['location']
-    lon, lat = get_coordinates(location)
-    if lon and lat:
-        ax.plot(lon, lat, 'ro', transform=ccrs.PlateCarree())  # 紅點標記
-        # 可以選擇添加文字標籤
-        # ax.text(lon, lat, row['battle_url'], transform=ccrs.PlateCarree(), fontsize=8, horizontalalignment='right')
+- 請尊重維基百科的機器人政策和服務條款，避免過度頻繁的請求。
+- 由於維基百科的內容和結構會隨時間變動，請定期更新腳本以確保其正常工作。
+- 此腳本主要處理基本的戰役信息，並未深入解析戰役的每個細節，因此位置信息的準確性可能會有所差異。
 
-plt.title('Battle Locations')
-plt.show()
-```
-⎘
-修改說明：
-在get_coordinates⎘函数中，調整了正則表達式以匹配度數符號(°⎘)和方向符號(N, S, E, W)。這裡使用了捕獲組來分別獲取緯度和經度數據。
-使用re.sub⎘函数去除度數符號和方向符號後，再將字符串轉換為浮點數，確保正確地解析座標。
-這種方法應該能夠處理你提供的格式，例如 "Megiddo, Canaan32.58528° N 35.18444° E"⎘。
-請確保你已經安裝了所有需要的庫並再次運行這個腳本。如果還有其他格式的座標或地名解析問題，可以根據實際數據進一步調整正則表達式或處理邏輯。
+# CSV 轉世界地圖座標展示(csv_to_map.py)
 
-user: 修改兩個地方 1.預設csv檔名:battles_locations.csv 2.顯示處理進度X
-assistant:
-好的，以下是修改後的代碼，包含了你提到的兩個要求：
-```
-import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import re
+這個專案旨在從CSV檔案讀取戰役的維基百科網址和位置資訊，將其在地圖上以紅點標示出來。以下是步驟簡介：
 
-# 初始化地名解析器
-geolocator = Nominatim(user_agent="my_application")
+## 使用說明
 
-def get_coordinates(location):
-    try:
-        # 直接從字符串中提取座標，包含度數符號
-        coord_match = re.search(r'(?P<lat>\d+(\.\d+)?°\s*[NSEW])\s*(?P<lon>\d+(\.\d+)?°\s*[NSEW])', location)
-        if coord_match:
-            lat_str, lon_str = coord_match.group('lat'), coord_match.group('lon')
-            lat = float(re.sub(r'[°NSEW]', '', lat_str)) if lat_str[-1] in 'N' else -float(re.sub(r'[°NSEW]', '', lat_str))
-            lon = float(re.sub(r'[°NSEW]', '', lon_str)) if lon_str[-1] in 'E' else -float(re.sub(r'[°NSEW]', '', lon_str))
-            return lon, lat
-        
-        # 如果没有找到座標，則使用geopy進行地理编码
-        location = re.sub(r'\([^)]*\)', '', location)  # 移除括號内的內容
-        location = location.strip()
-        location = re.sub(r'\s+', ' ', location)  # 清理多餘空格
-        loc = geolocator.geocode(location, timeout=10)
-        if loc:
-            return loc.longitude, loc.latitude
-    except (GeocoderTimedOut, GeocoderUnavailable):
-        print(f"Failed to retrieve coordinates for {location}")
-    return None, None
+### 步驟一：準備環境
 
-# 讀取CSV文件
-df = pd.read_csv('battles_locations.csv')
+1. **安裝必要的Python庫**：
+   - 請確保已安裝Python環境。
+   - 安裝以下Python庫：
+     ```bash
+     pip install pandas geopy matplotlib cartopy
+     ```
 
-# 設置地圖
-plt.figure(figsize=(15, 10))
-ax = plt.axes(projection=ccrs.PlateCarree())
-ax.stock_img()
-ax.coastlines()
+### 步驟二：準備資料
 
-# 處理每個位置並在地圖上標記，顯示處理進度
-total_rows = len(df)
-for index, row in df.iterrows():
-    location = row['location']
-    lon, lat = get_coordinates(location)
-    if lon and lat:
-        ax.plot(lon, lat, 'ro', transform=ccrs.PlateCarree())  # 紅點標記
-    print(f"Processing: {index + 1}/{total_rows} - {location}", end='\r')
+2. **CSV文件格式**：
+   - 第一欄位為`battle_url`，存放戰役的維基百科網址。
+   - 第二欄位為`location`，存放位置資訊，可能包含地名或座標。
+   - 請將CSV文件命名為`battles_locations.csv`。
 
-plt.title('Battle Locations')
-plt.show()
-```
-⎘
-修改說明：
-CSV文件名：已將CSV文件名設置為battles_locations.csv⎘。
-顯示處理進度：在處理每個位置時，會在命令行中顯示處理進度。使用print⎘函数並設置end='\r'⎘以便每處理一行就刷新顯示進度。
-請注意，由于進度條是使用回車符 (\r⎘) 来重寫同一行信息的，所以在IDE中可能看不到實時更新的效果。在命令行或終端中運行這段代碼可以看到實時的進度更新。
+### 步驟三：運行程式
+
+3. **執行`csv_to_map.py`**：
+   - 程式會讀取`battles_locations.csv`文件，並在地圖上標記各戰役的位置。
+   - 運行程式時，你會看到在命令行中顯示的處理進度。
+
+### 步驟四：觀看結果
+
+4. **查看地圖**：
+   - 程式執行完畢後，會自動顯示一個世界地圖，每個戰役的位置以紅點標記。
+   - 地圖會顯示在預設的圖形視窗中。
+
+### 程式碼概要
+
+- **解析位置**：程式碼會嘗試從`location`欄位解析出座標，若無法解析，則會使用`geopy`來進行地理編碼。
+- **繪製地圖**：使用`matplotlib`和`cartopy`庫來繪製世界地圖，並在確定的座標上打上紅點。
+- **處理進度**：在處理每條記錄時，會在命令行中顯示進度。
+
+### 注意事項
+
+- 地名解析需要網絡連接，因為它依賴於外部地理編碼服務。
+- 某些地名可能因為資料庫限制或解析問題而無法正確標示，建議在運行時檢查輸出信息。
+
+這個程式提供了從CSV文件到視覺化地圖展示的自動化流程，適用於研究歷史戰役地點的展示與分析。
